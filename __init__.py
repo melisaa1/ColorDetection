@@ -9,7 +9,7 @@ import sqlite3
 
 
 def init_db():
-    conn = sqlite3.connect('/Users/user/PyCharmMiscProject/OpenCvTest1/image_versions.db')
+    conn = sqlite3.connect('/Users/user/PyCharmMiscProject/color detection/image_versions.db')
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS image_versions (
@@ -22,7 +22,7 @@ def init_db():
 
 
 def load_last_image_from_db():
-    conn = sqlite3.connect('/Users/user/PyCharmMiscProject/OpenCvTest1/image_versions.db')
+    conn = sqlite3.connect('/Users/user/PyCharmMiscProject/color detection/image_versions.db')
     cursor = conn.cursor()
     cursor.execute("SELECT image_data FROM image_versions ORDER BY id DESC LIMIT 1 OFFSET 1")
     row = cursor.fetchone()
@@ -72,7 +72,7 @@ def save():
      message_label.config(text="🎨no change in image!", fg="green")
 
 def save_image_to_db(image):
-    conn = sqlite3.connect('/Users/user/PyCharmMiscProject/OpenCvTest1/image_versions.db')
+    conn = sqlite3.connect('/Users/user/PyCharmMiscProject/color detection/image_versions.db')
     cursor = conn.cursor()
     is_success, buffer = cv2.imencode(".png", image)
     if is_success:
@@ -131,7 +131,7 @@ def calculate_dominant_color(image):
 
 def undo():
     global image
-    conn = sqlite3.connect('/Users/user/PyCharmMiscProject/OpenCvTest1/image_versions.db')
+    conn = sqlite3.connect('/Users/user/PyCharmMiscProject/color detection/image_versions.db')
     cursor = conn.cursor()
 
     # Count how many versions we have
