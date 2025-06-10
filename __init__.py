@@ -12,9 +12,9 @@ def init_db():
     conn = sqlite3.connect('/Users/user/PyCharmMiscProject/color detection/image_versions.db')
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS image_versions (
+        CREATE TABLE IF NOT EXISTS image_data(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            image_data BLOB
+            data BLOB
         )
     ''')
     conn.commit()
@@ -24,7 +24,7 @@ def init_db():
 def load_last_image_from_db():
     conn = sqlite3.connect('/Users/user/PyCharmMiscProject/color detection/image_versions.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT image_data FROM image_versions ORDER BY id DESC LIMIT 1 OFFSET 1")
+    cursor.execute("SELECT data FROM image_data ORDER BY id DESC LIMIT 1 OFFSET 1")
     row = cursor.fetchone()
     conn.close()
     if row:
@@ -48,6 +48,7 @@ selectedColor = (0,0,0)
 last_x ,last_y =None,None
 isSelect=False
 image_history=[]
+redo_stack = []
 
 def select():
     global selectedColor,last_x,last_y,image, isSelect ,image_history
@@ -76,7 +77,7 @@ def save_image_to_db(image):
     cursor = conn.cursor()
     is_success, buffer = cv2.imencode(".png", image)
     if is_success:
-        cursor.execute("INSERT INTO image_versions (image_data) VALUES (?)", (buffer.tobytes(),))
+        cursor.execute("INSERT INTO image_data (data) VALUES (?)", (buffer.tobytes(),))
         conn.commit()
     conn.close()
 
@@ -128,23 +129,41 @@ def calculate_dominant_color(image):
         color_name = closest_color_name(rgb_value)
 
     message_label2.config(text=f"Dominant color: {color_name}", fg="green")
+def reundo():
+    global image, redo_stack
+    if redo_stack:
+        last_undone = redo_stack.pop()
+
+        conn = sqlite3.connect('/Users/user/PyCharmMiscProject/color detection/image_versions.db')
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO image_data (data) VALUES (?)", (last_undone,))
+        conn.commit()
+        conn.close()
+        nparr = np.frombuffer(last_undone, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        cv2.imshow("Image", image)
+        message_label3.config(text="", fg="green")
+    else:
+        message_label3.config(text="🎨Nothing to redo!", fg="green")
 
 def undo():
-    global image
+    global image ,redo_stack
     conn = sqlite3.connect('/Users/user/PyCharmMiscProject/color detection/image_versions.db')
     cursor = conn.cursor()
 
-    # Count how many versions we have
-    cursor.execute("SELECT COUNT(*) FROM image_versions")
+    cursor.execute("SELECT COUNT(*) FROM image_data")
     count = cursor.fetchone()[0]
 
     if count >= 2:
-        # Delete the latest image
-        cursor.execute("DELETE FROM image_versions WHERE id = (SELECT id FROM image_versions ORDER BY id DESC LIMIT 1)")
+        cursor.execute("SELECT data FROM image_data ORDER BY id DESC LIMIT 1")
+        redo_row = cursor.fetchone()
+        if redo_row:
+            redo_stack.append(redo_row[0])
+
+        cursor.execute("DELETE FROM image_data WHERE id = (SELECT id FROM image_data ORDER BY id DESC LIMIT 1)")
         conn.commit()
 
-        # Load the new latest
-        cursor.execute("SELECT image_data FROM image_versions ORDER BY id DESC LIMIT 1")
+        cursor.execute("SELECT data FROM image_data ORDER BY id DESC LIMIT 1")
         row = cursor.fetchone()
         conn.close()
 
@@ -152,6 +171,7 @@ def undo():
             nparr = np.frombuffer(row[0], np.uint8)
             image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             cv2.imshow("Image", image)
+            message_label3.config(text="", fg="green")
     else:
         conn.close()
         message_label3.config(text="🎨Nothing to undo!", fg="green")
@@ -178,6 +198,8 @@ message_label4 = Label(window, text="", fg="green")
 message_label4.place(x=150, y=30)
 button = Button(window, text='undo', command=undo)
 button.place(x=150, y=70)
+button = Button(window, text='Reundo', command=reundo)
+button.place(x=230, y=70)
 
 
 frame1 = Frame(window, bd=50, relief="flat", width=50, height=50)
@@ -185,7 +207,7 @@ frame1.place(x=190, y=190)
 
 image = cv2.imread('secondimg.jpeg', 1)
 
-#image = cv2.imread('new_image.jpeg', 1)
+
 image = cv2.resize(image, (600, 700))
 save_image_to_db(image.copy())
 cv2.imshow("Image", image)
